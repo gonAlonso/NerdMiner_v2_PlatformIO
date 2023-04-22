@@ -1,19 +1,21 @@
 #define ESP_DRD_USE_SPIFFS true
 
 // Include Libraries
-//#include ".h"
+// #include ".h"
 #include <WiFi.h>
 #include <SPIFFS.h>
 #include <FS.h>
 
 #include <WiFiManager.h>
 #include <ArduinoJson.h>
-#include "media/images.h"
+#include "lib/images.h"
 #include <TFT_eSPI.h> // Graphics and font library
-#include "wManager.h"
 
 // JSON configuration file
 #define JSON_CONFIG_FILE "/config.json"
+
+// Botón configuración
+#define TRIGGER_PIN 14
 
 // Flag for saving data
 bool shouldSaveConfig = false;
@@ -23,22 +25,16 @@ char poolString[80] = "solo.ckpool.org";
 int portNumber = 3333;
 char btcString[80] = "yourBtcAddress";
 
-
 // Define WiFiManager Object
 WiFiManager wm;
 
-static int buttonReset = 1;
-static unsigned long lastButtonPress = 0; // Última vez que se pulsó el botón
-
-volatile bool buttonPressed = false;
-
-extern TFT_eSPI tft;  // tft variable declared on main
+extern TFT_eSPI tft; // tft variable declared on main
 
 void saveConfigFile()
 // Save Config in JSON format
 {
   Serial.println(F("Saving configuration..."));
-  
+
   // Create a JSON document
   StaticJsonDocument<512> json;
   json["poolString"] = poolString;
@@ -87,7 +83,6 @@ bool loadConfigFile()
         Serial.println("Opened configuration file");
         StaticJsonDocument<512> json;
         DeserializationError error = deserializeJson(json, configFile);
-        configFile.close();
         serializeJsonPretty(json, Serial);
         if (!error)
         {
@@ -116,7 +111,6 @@ bool loadConfigFile()
   return false;
 }
 
-
 void saveConfigCallback()
 // Callback notifying us of the need to save configuration
 {
@@ -139,13 +133,13 @@ void configModeCallback(WiFiManager *myWiFiManager)
 void init_WifiManager()
 {
   Serial.begin(115200);
-  //Serial.setTxTimeoutMs(10);
-  //Init config pin
-  // pinMode(TRIGGER_PIN, INPUT);
-  
+  // Serial.setTxTimeoutMs(10);
+  // Init config pin
+  pinMode(TRIGGER_PIN, INPUT);
+
   // Change to true when testing to force configuration every time we run
   bool forceConfig = false;
- 
+
   bool spiffsSetup = loadConfigFile();
   if (!spiffsSetup)
   {
@@ -157,26 +151,26 @@ void init_WifiManager()
   WiFi.mode(WIFI_STA);
 
   // Reset settings (only for development)
-  //wm.resetSettings();
+  // wm.resetSettings();
 
-  //Set dark theme
-  //wm.setClass("invert"); // dark theme
-  
+  // Set dark theme
+  // wm.setClass("invert"); // dark theme
+
   // Set config save notify callback
   wm.setSaveConfigCallback(saveConfigCallback);
 
   // Set callback that gets called when connecting to previous WiFi fails, and enters Access Point mode
   wm.setAPCallback(configModeCallback);
 
-  //Advanced settings
-  wm.setConfigPortalBlocking(false); //Hacemos que el portal no bloquee el firmware
-  wm.setConnectTimeout(30); // how long to try to connect for before continuing
-  //wm.setConfigPortalTimeout(30); // auto close configportal after n seconds
-  // wm.setCaptivePortalEnable(false); // disable captive portal redirection
-  // wm.setAPClientCheck(true); // avoid timeout if client connected to softap
-  //wm.setTimeout(120);
-  //wm.setConfigPortalTimeout(120); //seconds
-  
+  // Advanced settings
+  wm.setConfigPortalBlocking(false); // Hacemos que el portal no bloquee el firmware
+  wm.setConnectTimeout(30);          // how long to try to connect for before continuing
+  // wm.setConfigPortalTimeout(30); // auto close configportal after n seconds
+  //  wm.setCaptivePortalEnable(false); // disable captive portal redirection
+  //  wm.setAPClientCheck(true); // avoid timeout if client connected to softap
+  // wm.setTimeout(120);
+  // wm.setConfigPortalTimeout(120); //seconds
+
   // Custom elements
 
   // Text box (String) - 80 characters maximum
@@ -184,10 +178,10 @@ void init_WifiManager()
 
   // Need to convert numerical input to string to display the default value.
   char convertedValue[6];
-  sprintf(convertedValue, "%d", portNumber); 
-  
+  sprintf(convertedValue, "%d", portNumber);
+
   // Text box (Number) - 7 characters maximum
-  WiFiManagerParameter port_text_box_num("Poolport", "Pool port", convertedValue, 7); 
+  WiFiManagerParameter port_text_box_num("Poolport", "Pool port", convertedValue, 7);
 
   // Text box (String) - 80 characters maximum
   WiFiManagerParameter addr_text_box("btcAddress", "Your BTC address", btcString, 80);
@@ -199,37 +193,38 @@ void init_WifiManager()
 
   Serial.println("AllDone: ");
   if (forceConfig)
-    // Run if we need a configuration
+  // Run if we need a configuration
   {
-    //No configuramos timeout al modulo
-    wm.setConfigPortalBlocking(true); //Hacemos que el portal SI bloquee el firmware
+    // No configuramos timeout al modulo
+    wm.setConfigPortalBlocking(true); // Hacemos que el portal SI bloquee el firmware
     tft.pushImage(0, 0, setupModeWidth, setupModeHeight, setupModeScreen);
-    if (!wm.startConfigPortal("NerdMinerAP","MineYourCoins"))
+    if (!wm.startConfigPortal("NerdMinerAP", "MineYourCoins"))
     {
       Serial.println("failed to connect and hit timeout");
       delay(3000);
-      //reset and try again, or maybe put it to deep sleep
+      // reset and try again, or maybe put it to deep sleep
       ESP.restart();
       delay(5000);
     }
   }
   else
   {
-    //Tratamos de conectar con la configuración inicial ya almacenada
+    // Tratamos de conectar con la configuración inicial ya almacenada
     wm.setCaptivePortalEnable(false); // disable captive portal redirection
-    if (!wm.autoConnect("NerdMinerAP","MineYourCoins"))
+    if (!wm.autoConnect("NerdMinerAP", "MineYourCoins"))
     {
       Serial.println("Failed to connect and hit timeout");
-      //delay(3000);
-      // if we still have not connected restart and try all over again
-      //ESP.restart();
-      //delay(5000);
+      // delay(3000);
+      //  if we still have not connected restart and try all over again
+      // ESP.restart();
+      // delay(5000);
     }
   }
 
-  //Conectado a la red Wifi
-  if(WiFi.status() == WL_CONNECTED){
-    //tft.pushImage(0, 0, MinerWidth, MinerHeight, MinerScreen);
+  // Conectado a la red Wifi
+  if (WiFi.status() == WL_CONNECTED)
+  {
+    // tft.pushImage(0, 0, MinerWidth, MinerHeight, MinerScreen);
     Serial.println("");
     Serial.println("WiFi connected");
     Serial.print("IP address: ");
@@ -241,25 +236,25 @@ void init_WifiManager()
     Serial.println("WiFi connected");
     Serial.print("IP address: ");
     Serial.println(WiFi.localIP());
-  
+
     // Lets deal with the user config values
-  
+
     // Copy the string value
     strncpy(poolString, pool_text_box.getValue(), sizeof(poolString));
     Serial.print("PoolString: ");
     Serial.println(poolString);
-  
-    //Convert the number value
+
+    // Convert the number value
     portNumber = atoi(port_text_box_num.getValue());
     Serial.print("portNumber: ");
     Serial.println(portNumber);
-  
+
     // Copy the string value
     strncpy(btcString, addr_text_box.getValue(), sizeof(btcString));
     Serial.print("btcString: ");
     Serial.println(btcString);
   }
-  
+
   // Save the custom parameters to FS
   if (shouldSaveConfig)
   {
@@ -267,48 +262,32 @@ void init_WifiManager()
   }
 }
 
-void checkResetConfigButton(){
-
-  // Leer el estado del botón
-  int buttonState = digitalRead(PIN_BUTTON_1);
-  unsigned int last_time = (millis() - lastButtonPress);
-  Serial.printf("button pressed %i - %u\n", buttonReset, last_time);
-
-  buttonReset++;
-  lastButtonPress = millis();
-
-  if ( last_time > 1000) {
-    buttonReset = 1;
-  }
-
-  // Si el botón está pulsado y ha pasado suficiente tiempo desde la última pulsación
-  if (last_time < 1000 && buttonReset == 4) {
-    buttonPressed = true;
-  } 
-    
-}
-
-void checkRemoveConfiguration() {
-  if(!buttonPressed){
-    return;
-  }
-
-  buttonPressed = false;
+void checkConfigButton()
+{
   // check for button press
-  Serial.printf("[CONFIG] Button reset pressed %i\n", buttonReset);
-  Serial.println("[CONFIG] Erasing pool config");
-  Serial.println("[CONFIG] Deleting existing configuration");
-  SPIFFS.remove(JSON_CONFIG_FILE); //Borramos fichero
-  Serial.println("[CONFIG] Erasing wifi config");
-  wm.resetSettings();
-  Serial.println("[CONFIG] Restarting");
-  delay(1000); 
-  ESP.restart();
+  if (digitalRead(TRIGGER_PIN) == LOW)
+  {
+    // poor mans debounce/press-hold, code not ideal for production
+    delay(50);
+    if (digitalRead(TRIGGER_PIN) == LOW)
+    {
+      Serial.println("Button Pressed");
+      // still holding button for 3000 ms, reset settings, code not ideaa for production
+      delay(3000); // reset delay hold
+      if (digitalRead(TRIGGER_PIN) == LOW)
+      {
+        Serial.println("Button Held");
+        Serial.println("Erasing Config, restarting");
+        wm.resetSettings();
+        SPIFFS.remove(JSON_CONFIG_FILE); // Borramos fichero
+        ESP.restart();
+      }
+    }
+  }
 }
 
-
-void wifiManagerProcess() {
+void wifiManagerProcess()
+{
   wm.process(); // avoid delays() in loop when non-blocking and other long running code
+  checkConfigButton();
 }
-
-

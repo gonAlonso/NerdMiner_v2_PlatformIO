@@ -1,8 +1,9 @@
 
 // Mining
-#define THREADS 1
+#define THREADS 0
 #define MAX_NONCE 1000000
-// #define MAX_NONCE    1.215.752.192
+//#define ADDRESS "bc1qpmsd9g8fd4r2t1c4quqs3f3vnwdzhn3zqpct7e" 
+
 
 // Pool
 //#define POOL_URL "solo.ckpool.org" //"btc.zsolo.bid" "eu.stratum.slushpool.com"
